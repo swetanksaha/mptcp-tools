@@ -35,6 +35,34 @@
 
 #include <linux/kconfig.h>
 
+#if IS_ENABLED(CONFIG_NET_MPTCP_QUEUE_PROBE)
+struct mptcp_queue_probe qprobe;
+/* This exists only for kprobe to hook on to and read from qprobe */
+noinline struct mptcp_queue_probe* mptcp_queue_probe_log_hook(u8 q_id, struct tcp_sock *meta_tp, struct sk_buff *skb, u8 op_id) {
+	u32 *cnt;
+	if (!q_id) cnt = &((meta_tp->mpcb)->cnt_in_order);
+	else cnt = &((meta_tp->mpcb)->cnt_out_of_order); 
+	switch (op_id) {
+		case 0: *cnt += (TCP_SKB_CB(skb)->end_seq - TCP_SKB_CB(skb)->seq);
+				break;
+		case 1: *cnt -= (TCP_SKB_CB(skb)->end_seq - TCP_SKB_CB(skb)->seq);
+				break;
+		case 2: *cnt = 0;
+				break;
+	}
+	qprobe.q_id = q_id;
+    qprobe.meta_tp = meta_tp;
+	if(skb) qprobe.skb_seq = TCP_SKB_CB(skb)->seq;
+	else qprobe.skb_seq = 0;
+	if(skb) qprobe.skb_end_seq = TCP_SKB_CB(skb)->end_seq;
+	else qprobe.skb_end_seq = 0;
+    qprobe.op_id = op_id;
+	qprobe.q_size = *cnt;
+    return &qprobe;
+}
+EXPORT_SYMBOL_GPL(mptcp_queue_probe_log_hook);
+#endif
+
 /* is seq1 < seq2 ? */
 static inline bool before64(const u64 seq1, const u64 seq2)
 {
@@ -713,7 +741,8 @@ static int mptcp_detect_mapping(struct sock *sk, struct sk_buff *skb)
 		 * the data and subflow-level
 		 */
 		skb_rbtree_purge(&meta_tp->out_of_order_queue);
-
+                if (IS_ENABLED(CONFIG_NET_MPTCP_QUEUE_PROBE))
+                        mptcp_queue_probe_log_hook(MPTCP_OFO_QUEUE, meta_tp, NULL, 2);
 		set_infinite_rcv = true;
 		MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_INFINITEMAPRX);
 	}
@@ -961,8 +990,11 @@ static int mptcp_queue_skb(struct sock *sk)
 			 */
 			skb_orphan(tmp1);
 
-			if (!mpcb->in_time_wait) /* In time-wait, do not receive data */
-				tcp_data_queue_ofo(meta_sk, tmp1);
+			if (!mpcb->in_time_wait) { /* In time-wait, do not receive data */
+				if (IS_ENABLED(CONFIG_NET_MPTCP_QUEUE_PROBE))
+                                        mptcp_queue_probe_log_hook(MPTCP_OFO_QUEUE, meta_tp, tmp1, 0);
+                                tcp_data_queue_ofo(meta_sk, tmp1);
+                        }
 			else
 				__kfree_skb(tmp1);
 
@@ -1001,8 +1033,11 @@ static int mptcp_queue_skb(struct sock *sk)
 			if (mpcb->in_time_wait) /* In time-wait, do not receive data */
 				eaten = 1;
 
-			if (!eaten)
+			if (!eaten) {
+                                if (IS_ENABLED(CONFIG_NET_MPTCP_QUEUE_PROBE))
+                                        mptcp_queue_probe_log_hook(MPTCP_RCV_QUEUE, meta_tp, tmp1, 0);
 				eaten = tcp_queue_rcv(meta_sk, tmp1, 0, &fragstolen);
+                        }
 
 			meta_tp->rcv_nxt = TCP_SKB_CB(tmp1)->end_seq;
 
@@ -1369,6 +1404,8 @@ void mptcp_fin(struct sock *meta_sk)
 	 * Probably, we should reset in this case. For now drop them.
 	 */
 	skb_rbtree_purge(&meta_tp->out_of_order_queue);
+        if (IS_ENABLED(CONFIG_NET_MPTCP_QUEUE_PROBE))
+                mptcp_queue_probe_log_hook(MPTCP_OFO_QUEUE, meta_tp, NULL, 2);
 	sk_mem_reclaim(meta_sk);
 
 	if (!sock_flag(meta_sk, SOCK_DEAD)) {
