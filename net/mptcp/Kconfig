@@ -93,11 +93,18 @@ config MPTCP_REDUNDANT
 	  latency and jitter on the cost of lower throughput.
 
 config MPTCP_RTT
-    tristate "MPTCP minRTT"
-    depends on (MPTCP=y)
-    ---help---
-      This scheduler is a copy of the default (minRTT) scheduler with changes to
-      allow for user-space monitoring of scheduling decisions.
+        tristate "MPTCP minRTT"
+        depends on (MPTCP=y)
+        ---help---
+          This scheduler is a copy of the default (minRTT) scheduler with changes to
+          allow for user-space monitoring of scheduling decisions.
+
+config MPTCP_RATIO
+        tristate "MPTCP Ratio"
+        depends on (MPTCP=y)
+        ---help---
+          This scheduler distributes packets between the sub-flows based on a
+          user-defined (runtime-configurable from userspace) ratio.
 
 choice
 	prompt "Default MPTCP Scheduler"
@@ -123,19 +130,26 @@ choice
 		  This is the redundant scheduler, sending packets redundantly over
 		  all the subflows.
 
-    config DEFAULT_RTT
-        bool "minRTT" if MPTCP_RTT=y
-        ---help---
-          This is a copy of the default (minRTT) scheduler with extra instrumentation.
+        config DEFAULT_RTT
+                bool "minRTT" if MPTCP_RTT=y
+                ---help---
+                  This is a copy of the default (minRTT) scheduler with extra instrumentation.
+
+        config DEFAULT_RATIO
+                bool "Ratio" if MPTCP_RATIO=y
+                ---help---
+                  This distributes packets among subflows based on a pre-defined ratio.
 
 endchoice
 endif
 
 config DEFAULT_MPTCP_SCHED
-    string
-    depends on (MPTCP=y)
-    default "default" if DEFAULT_SCHEDULER
-    default "roundrobin" if DEFAULT_ROUNDROBIN
-    default "redundant" if DEFAULT_REDUNDANT
-    default "minrtt" if DEFAULT_RTT
-    default "default"
+        string
+        depends on (MPTCP=y)
+        default "default" if DEFAULT_SCHEDULER
+        default "roundrobin" if DEFAULT_ROUNDROBIN
+        default "redundant" if DEFAULT_REDUNDANT
+        default "minrtt" if DEFAULT_RTT
+        default "ratio" if DEFAULT_RATIO
+        default "default"
+
