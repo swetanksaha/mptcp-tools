@@ -749,9 +749,25 @@ struct mptcp_sched_probe {
     bool found_unused_reject;
     bool def_unavailable;
     bool temp_unavailable;
+	bool srtt_reject;
     bool selected;
+    int split;
+    int skblen;
+    u32 tx_bytes;
+    u32 trans_start;
 };
 #endif /* CONFIG_NET_MPTCP_SCHED_PROBE */
+
+#ifdef NET_MPTCP_QUEUE_PROBE
+struct mptcp_queue_probe {
+	u8 q_id;
+	struct tcp_sock *meta_tp;
+	u32 skb_seq;
+	u32 skb_end_seq;
+	u8 op_id;
+	u32 q_size;
+};
+#endif /* CONFIG_NET_MPTCP_QUEUE_PROBE */
 
 #define MPTCP_MIB_MAX __MPTCP_MIB_MAX
 struct mptcp_mib {
