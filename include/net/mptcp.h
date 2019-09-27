@@ -741,6 +741,18 @@ enum
 	__MPTCP_MIB_MAX
 };
 
+#ifdef NET_MPTCP_SCHED_PROBE
+struct mptcp_sched_probe {
+    unsigned long id;
+    struct sock *sk;
+    bool selector_reject;
+    bool found_unused_reject;
+    bool def_unavailable;
+    bool temp_unavailable;
+    bool selected;
+};
+#endif /* CONFIG_NET_MPTCP_SCHED_PROBE */
+
 #define MPTCP_MIB_MAX __MPTCP_MIB_MAX
 struct mptcp_mib {
 	unsigned long	mibs[MPTCP_MIB_MAX];

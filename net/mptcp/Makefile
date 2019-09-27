@@ -21,5 +21,8 @@ obj-$(CONFIG_MPTCP_RTT) += mptcp_rtt.o
 obj-$(CONFIG_NET_MPTCP_SCHED_PROBE) += mptcp_sched_probe.o
 obj-$(CONFIG_NET_MPTCP_QUEUE_PROBE) += mptcp_queue_probe.o
 
+CFLAGS_mptcp_sched_probe.o = -DNET_MPTCP_SCHED_PROBE
+CFLAGS_mptcp_queue_probe.o = -DNET_MPTCP_QUEUE_PROBE
+
 mptcp-$(subst m,y,$(CONFIG_IPV6)) += mptcp_ipv6.o
 
