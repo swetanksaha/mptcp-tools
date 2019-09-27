@@ -92,6 +92,13 @@ config MPTCP_REDUNDANT
 	  This scheduler sends all packets redundantly over all subflows to decreases
 	  latency and jitter on the cost of lower throughput.
 
+config MPTCP_RTT
+    tristate "MPTCP minRTT"
+    depends on (MPTCP=y)
+    ---help---
+      This scheduler is a copy of the default (minRTT) scheduler with changes to
+      allow for user-space monitoring of scheduling decisions.
+
 choice
 	prompt "Default MPTCP Scheduler"
 	default DEFAULT
@@ -116,14 +123,20 @@ choice
 		  This is the redundant scheduler, sending packets redundantly over
 		  all the subflows.
 
+    config DEFAULT_RTT
+        bool "minRTT" if MPTCP_RTT=y
+        ---help---
+          This is a copy of the default (minRTT) scheduler with extra instrumentation.
+
 endchoice
 endif
 
 config DEFAULT_MPTCP_SCHED
-	string
-	depends on (MPTCP=y)
-	default "default" if DEFAULT_SCHEDULER
-	default "roundrobin" if DEFAULT_ROUNDROBIN
-	default "redundant" if DEFAULT_REDUNDANT
-	default "default"
+    string
+    depends on (MPTCP=y)
+    default "default" if DEFAULT_SCHEDULER
+    default "roundrobin" if DEFAULT_ROUNDROBIN
+    default "redundant" if DEFAULT_REDUNDANT
+    default "minrtt" if DEFAULT_RTT
+    default "default"
 
