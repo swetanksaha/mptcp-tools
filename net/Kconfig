@@ -354,6 +354,19 @@ config NET_TCPPROBE
 	To compile this code as a module, choose M here: the
 	module will be called tcp_probe.
 
+config NET_MPTCP_SCHED_PROBE
+	tristate "MPTCP scheduler probing"
+	depends on INET && PROC_FS && KPROBES && (MPTCP=y) && (MPTCP_RTT=y || MPTCP_RTT=m)
+	---help---
+	This module allows for probing the MPTCP scheduler decision and state. For 
+	now, only the RTT scheduler is supported. If you don't understand what was 
+	just said, you don't need it: say N. Design heavily borrowed from the famous
+	tcp_probe module: 
+		http://www.linuxfoundation.org/collaborate/workgroups/networking/tcpprobe
+	
+	To compile this code as a module, choose M here: the module will be called
+	mptcp_sched_probe.
+
 config NET_DROP_MONITOR
 	tristate "Network packet drop alerting service"
 	depends on INET && TRACEPOINTS
