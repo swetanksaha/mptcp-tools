@@ -161,42 +161,74 @@ EXPORT_SYMBOL_GPL(rtt_subflow_is_active);
 /* Generic function to iterate over used and unused subflows and to select the
  * best one
  */
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+static struct sock
+*get_subflow_from_selectors(struct mptcp_cb *mpcb, struct sk_buff *skb,
+                bool (*selector)(const struct tcp_sock *),
+                bool zero_wnd_test, bool *force, unsigned long sched_probe_id)
+#else
 static struct sock
 *get_subflow_from_selectors(struct mptcp_cb *mpcb, struct sk_buff *skb,
 			    bool (*selector)(const struct tcp_sock *),
 			    bool zero_wnd_test, bool *force)
+#endif
 {
 	struct sock *bestsk = NULL;
 	u32 min_srtt = 0xffffffff;
 	bool found_unused = false;
 	bool found_unused_una = false;
 	struct sock *sk;
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)	
+        struct mptcp_sched_probe sprobe;
+#endif
 
 	mptcp_for_each_sk(mpcb, sk) {
 		struct tcp_sock *tp = tcp_sk(sk);
 		bool unused = false;
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+                mptcp_sched_probe_init(&sprobe);
+#endif
 
 		/* First, we choose only the wanted sks */
-		if (!(*selector)(tp))
-			continue;
+		if (!(*selector)(tp)) {
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+                        sprobe.selector_reject = true;
+                        mptcp_sched_probe_log_hook(&sprobe, false, sched_probe_id, sk);
+#endif			
+                continue;
+	        }
 
 		if (!mptcp_dont_reinject_skb(tp, skb))
 			unused = true;
-		else if (found_unused)
+		else if (found_unused) {
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+                        sprobe.found_unused_reject = true;
+                        mptcp_sched_probe_log_hook(&sprobe, false, sched_probe_id, sk);
+#endif			
 			/* If a unused sk was found previously, we continue -
 			 * no need to check used sks anymore.
 			 */
 			continue;
+		}
 
-		if (rtt_mptcp_is_def_unavailable(sk))
+		if (mptcp_is_def_unavailable(sk)) {
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+                        sprobe.def_unavailable = true;
+                        mptcp_sched_probe_log_hook(&sprobe, false, sched_probe_id, sk);
+#endif
 			continue;
+		}
 
 		if (mptcp_is_temp_unavailable(sk, skb, zero_wnd_test)) {
 			if (unused)
 				found_unused_una = true;
-			continue;
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+                        sprobe.temp_unavailable = true;
+                        mptcp_sched_probe_log_hook(&sprobe, false, sched_probe_id, sk);
+#endif
+			continue;		
 		}
-
+		
 		if (unused) {
 			if (!found_unused) {
 				/* It's the first time we encounter an unused
@@ -213,8 +245,14 @@ static struct sock
 			min_srtt = tp->srtt_us;
 			bestsk = sk;
 		}
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+        else {
+                sprobe.srtt_reject = true;
+                mptcp_sched_probe_log_hook(&sprobe, false, sched_probe_id, sk);
+        }
+#endif
 	}
-
+	
 	if (bestsk) {
 		/* The force variable is used to mark the returned sk as
 		 * previously used or not-used.
@@ -233,6 +271,12 @@ static struct sock
 			*force = false;
 	}
 
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+        mptcp_sched_probe_init(&sprobe);
+        if(bestsk) {
+                mptcp_sched_probe_log_hook(&sprobe, true, sched_probe_id, bestsk);
+        }
+#endif
 	return bestsk;
 }
 
@@ -248,13 +292,25 @@ struct sock *rtt_get_available_subflow(struct sock *meta_sk, struct sk_buff *skb
 {
 	struct mptcp_cb *mpcb = tcp_sk(meta_sk)->mpcb;
 	struct sock *sk;
-	bool looping = false, force;
+	bool force;
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+	struct mptcp_sched_probe sprobe;
+	unsigned long sched_probe_id;
+	
+	mptcp_sched_probe_init(&sprobe);
+	get_random_bytes(&sched_probe_id, sizeof(sched_probe_id));
+#endif
 
 	/* if there is only one subflow, bypass the scheduling function */
 	if (mpcb->cnt_subflows == 1) {
 		sk = (struct sock *)mpcb->connection_list;
 		if (!mptcp_is_available(sk, skb, zero_wnd_test))
 			sk = NULL;
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+		if(sk) {
+                        mptcp_sched_probe_log_hook(&sprobe, true, sched_probe_id, sk);
+                }
+#endif
 		return sk;
 	}
 
@@ -263,14 +319,32 @@ struct sock *rtt_get_available_subflow(struct sock *meta_sk, struct sk_buff *skb
 	    skb && mptcp_is_data_fin(skb)) {
 		mptcp_for_each_sk(mpcb, sk) {
 			if (tcp_sk(sk)->mptcp->path_index == mpcb->dfin_path_index &&
-			    mptcp_is_available(sk, skb, zero_wnd_test))
+			    mptcp_is_available(sk, skb, zero_wnd_test)) {
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+    			if(sk) {
+                                mptcp_sched_probe_log_hook(&sprobe, true, sched_probe_id, sk);
+                        }
+#endif
 				return sk;
+			}
 		}
 	}
 
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
 	/* Find the best subflow */
-restart:
-	sk = get_subflow_from_selectors(mpcb, skb, &rtt_subflow_is_active,
+        sk = get_subflow_from_selectors(mpcb, skb, &subflow_is_active,
+                    zero_wnd_test, &force, sched_probe_id);
+        if (force)
+                /* one unused active sk or one NULL sk when there is at least
+                * one temporally unavailable unused active sk
+                */
+                return sk;
+	
+        sk = get_subflow_from_selectors(mpcb, skb, &subflow_is_backup,
+                    zero_wnd_test, &force, sched_probe_id);
+#else
+	/* Find the best subflow */
+	sk = get_subflow_from_selectors(mpcb, skb, &subflow_is_active,
 					zero_wnd_test, &force);
 	if (force)
 		/* one unused active sk or one NULL sk when there is at least
@@ -280,7 +354,8 @@ restart:
 
 	sk = get_subflow_from_selectors(mpcb, skb, &subflow_is_backup,
 					zero_wnd_test, &force);
-	if (!force && skb) {
+#endif
+	if (!force && skb)
 		/* one used backup sk or one NULL sk where there is no one
 		 * temporally unavailable unused backup sk
 		 *
@@ -288,12 +363,6 @@ restart:
 		 * sks, so clean the path mask
 		 */
 		TCP_SKB_CB(skb)->path_mask = 0;
-
-		if (!looping) {
-			looping = true;
-			goto restart;
-		}
-	}
 	return sk;
 }
 EXPORT_SYMBOL_GPL(rtt_get_available_subflow);

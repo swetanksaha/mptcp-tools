@@ -752,18 +752,18 @@ enum
 
 #if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
 struct mptcp_sched_probe {
-    unsigned long id;
-    struct sock *sk;
-    bool selector_reject;
-    bool found_unused_reject;
-    bool def_unavailable;
-    bool temp_unavailable;
+        unsigned long id;
+        struct sock *sk;
+        bool selector_reject;
+        bool found_unused_reject;
+        bool def_unavailable;
+        bool temp_unavailable;
 	bool srtt_reject;
-    bool selected;
-    int split;
-    int skblen;
-    u32 tx_bytes;
-    u32 trans_start;
+        bool selected;
+        int split;
+        int skblen;
+        u32 tx_bytes;
+        u32 trans_start;
 };
 #endif /* CONFIG_NET_MPTCP_SCHED_PROBE */
 
@@ -949,6 +949,10 @@ struct sock *get_available_subflow(struct sock *meta_sk, struct sk_buff *skb,
 				   bool zero_wnd_test);
 extern struct mptcp_sched_ops mptcp_sched_default;
 
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
+extern void mptcp_sched_probe_init(struct mptcp_sched_probe *sprobe);
+extern struct mptcp_sched_probe* mptcp_sched_probe_log_hook(struct mptcp_sched_probe* sprobe, bool selected, unsigned long sched_probe_id, struct sock *sk);
+#endif
 #if IS_ENABLED(CONFIG_NET_MPTCP_QUEUE_PROBE)
 extern struct mptcp_queue_probe* mptcp_queue_probe_log_hook(u8 q_id, struct tcp_sock *meta_tp, struct sk_buff *skb, u8 op_id);
 #endif
