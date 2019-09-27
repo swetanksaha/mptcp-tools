@@ -140,3 +140,8 @@ config DEFAULT_MPTCP_SCHED
     default "minrtt" if DEFAULT_RTT
     default "default"
 
+config MPTCP_QUEUE_PROBE
+        bool "MPTCP Meta-Queues Instrumentation"
+        depends on (MPTCP=y)
+        ---help---
+          This adds instrumentation in the MPTCP stack to trace meta rcv and ofo queues.
