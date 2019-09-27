@@ -4473,7 +4473,13 @@ void tcp_ofo_queue(struct sock *sk)
 						 tail, skb, &fragstolen);
 		tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
 		fin = TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN;
-		if (!eaten)
+
+        if (IS_ENABLED(CONFIG_NET_MPTCP_QUEUE_PROBE) && is_meta_sk(sk)) {
+            mptcp_queue_probe_log_hook(MPTCP_OFO_QUEUE, mptcp_meta_tp(tcp_sk(sk)), skb, 1);
+            mptcp_queue_probe_log_hook(MPTCP_RCV_QUEUE, mptcp_meta_tp(tcp_sk(sk)), skb, 0);
+        }
+
+        if (!eaten)
 			__skb_queue_tail(&sk->sk_receive_queue, skb);
 		else
 			kfree_skb_partial(skb, fragstolen);
