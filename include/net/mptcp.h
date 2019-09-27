@@ -741,7 +741,7 @@ enum
 	__MPTCP_MIB_MAX
 };
 
-#ifdef NET_MPTCP_SCHED_PROBE
+#if IS_ENABLED(CONFIG_NET_MPTCP_SCHED_PROBE)
 struct mptcp_sched_probe {
     unsigned long id;
     struct sock *sk;
@@ -758,7 +758,7 @@ struct mptcp_sched_probe {
 };
 #endif /* CONFIG_NET_MPTCP_SCHED_PROBE */
 
-#ifdef NET_MPTCP_QUEUE_PROBE
+#if IS_ENABLED(CONFIG_NET_MPTCP_QUEUE_PROBE)
 struct mptcp_queue_probe {
 	u8 q_id;
 	struct tcp_sock *meta_tp;
