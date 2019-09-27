@@ -367,6 +367,15 @@ config NET_MPTCP_SCHED_PROBE
 	To compile this code as a module, choose M here: the module will be called
 	mptcp_sched_probe.
 
+config NET_MPTCP_QUEUE_PROBE
+    tristate "MPTCP Meta-Queues Instrumentation"
+    depends on INET && PROC_FS && KPROBES && (MPTCP=y)
+    ---help---
+    This module adds instrumentation in the MPTCP stack to trace meta rcv and ofo
+    queues. If you don't understand what was just said, you don't need it: say N.
+    To compile this code as a module, choose M here: the module will be called
+    mptcp_queue_probe.
+
 config NET_DROP_MONITOR
 	tristate "Network packet drop alerting service"
 	depends on INET && TRACEPOINTS
