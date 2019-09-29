@@ -79,19 +79,19 @@ struct tcp_log {
 	u32 snd_cwnd_used;
 	u32 lost_out;
 	bool is_cwnd_limited;
-    u32 rate_delivered;
-    u32 rate_interval_us;
+        u32 rate_delivered;
+        u32 rate_interval_us;
 	
-    bool selector_reject;
-    bool found_unused_reject;
-    bool def_unavailable;
-    bool temp_unavailable;
+        bool selector_reject;
+        bool found_unused_reject;
+        bool def_unavailable;
+        bool temp_unavailable;
 	bool srtt_reject;
 	bool selected;
-    int split;
-    int skblen;
-    u32 tx_bytes;
-    u32 trans_start;
+        int split;
+        int skblen;
+        u32 tx_bytes;
+        u32 trans_start;
 };
 
 static struct {
@@ -184,13 +184,13 @@ static void log_tcp_params(struct mptcp_sched_probe* sprobe)
                         p->rate_delivered = tp->rate_delivered;		
                         p->rate_interval_us = tp->rate_interval_us;
 	
-						p->id = sprobe->id;
-						p->selector_reject = sprobe->selector_reject;
-						p->found_unused_reject = sprobe->found_unused_reject;
-						p->def_unavailable = sprobe->def_unavailable;
-						p->temp_unavailable = sprobe->temp_unavailable;
-						p->srtt_reject = sprobe->srtt_reject;
-						p->selected = sprobe->selected;
+			p->id = sprobe->id;
+			p->selector_reject = sprobe->selector_reject;
+			p->found_unused_reject = sprobe->found_unused_reject;
+			p->def_unavailable = sprobe->def_unavailable;
+			p->temp_unavailable = sprobe->temp_unavailable;
+			p->srtt_reject = sprobe->srtt_reject;
+			p->selected = sprobe->selected;
                         p->split = sprobe->split;
                         p->skblen = sprobe->skblen;
                         p->tx_bytes = sprobe->tx_bytes;
@@ -215,9 +215,9 @@ static int kmptcp_sched_probe_log_hook(struct kretprobe_instance *ri, struct pt_
 
 static struct kretprobe mptcp_kprobe = {
 	.kp = {
-		.symbol_name	= "mptcp_sched_probe_log_hook",
+                .symbol_name = "mptcp_sched_probe_log_hook",
 	},
-	.handler	= kmptcp_sched_probe_log_hook,
+	.handler = kmptcp_sched_probe_log_hook,
 };
 
 static int tcpprobe_open(struct inode *inode, struct file *file)
@@ -241,15 +241,15 @@ static int tcpprobe_sprint(char *tbuf, int n)
 	return scnprintf(tbuf, n,
            "%lu %lu.%09lu %pISpc %pISpc %d %#x %#x %u %u %u %u %u %u %u %u %u %u %u %u %x %u %u %u %x %x %x %x %x %x %x %d %d %u %u %u %u\n",
 	    	p->id,
-            (unsigned long)tv.tv_sec,
-            (unsigned long)tv.tv_nsec,
-            &p->src, &p->dst, p->length, p->snd_nxt, p->snd_una,
-            p->snd_cwnd, p->ssthresh, p->snd_wnd, p->srtt, p->rcv_wnd,
-            p->rttvar_us, p->rto, p->mss_cache, p->packets_in_flight,
-            p->retrans_out, p->total_retrans, p->rack_rtt_us, p->rack_reord,
-            p->snd_cwnd_clamp, p->snd_cwnd_used, p->lost_out, p->is_cwnd_limited,
-	    	p->selector_reject, p->found_unused_reject, p->def_unavailable, p->temp_unavailable, p->srtt_reject,
-			p->selected, p->split, p->skblen, p->tx_bytes, p->trans_start, p->rate_delivered, p->rate_interval_us);
+                (unsigned long)tv.tv_sec,
+                (unsigned long)tv.tv_nsec,
+                &p->src, &p->dst, p->length, p->snd_nxt, p->snd_una,
+                p->snd_cwnd, p->ssthresh, p->snd_wnd, p->srtt, p->rcv_wnd,
+                p->rttvar_us, p->rto, p->mss_cache, p->packets_in_flight,
+                p->retrans_out, p->total_retrans, p->rack_rtt_us, p->rack_reord,
+                p->snd_cwnd_clamp, p->snd_cwnd_used, p->lost_out, p->is_cwnd_limited,
+	        p->selector_reject, p->found_unused_reject, p->def_unavailable, p->temp_unavailable, p->srtt_reject,
+                p->selected, p->split, p->skblen, p->tx_bytes, p->trans_start, p->rate_delivered, p->rate_interval_us);
 }
 
 static ssize_t tcpprobe_read(struct file *file, char __user *buf,
@@ -317,14 +317,15 @@ static __init int tcpprobe_init(void)
 
 	bufsize = roundup_pow_of_two(bufsize);
 	tcp_probe.log = kcalloc(bufsize, sizeof(struct tcp_log), GFP_KERNEL);
-	if (!tcp_probe.log)
+        
+        if (!tcp_probe.log)
 		goto err0;
 
 	if (!proc_create(procname, S_IRUSR, init_net.proc_net, &tcpprobe_fops))
 		goto err0;
 	
 	ret = register_kretprobe(&mptcp_kprobe);
-	
+
 	if (ret)
 		goto err1;
 

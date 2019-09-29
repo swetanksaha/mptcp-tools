@@ -18,7 +18,8 @@ obj-$(CONFIG_MPTCP_BINDER) += mptcp_binder.o
 obj-$(CONFIG_MPTCP_ROUNDROBIN) += mptcp_rr.o
 obj-$(CONFIG_MPTCP_REDUNDANT) += mptcp_redundant.o
 obj-$(CONFIG_MPTCP_RTT) += mptcp_rtt.o
-obj-$(CONFIG_NET_MPTCP_SCHED_PROBE) += mptcp_sched_probe.o mptcp_sched_probe_log_hook.o
+obj-$(subst m,y,$(CONFIG_NET_MPTCP_SCHED_PROBE)) += mptcp_sched_probe_log_hook.o
+obj-$(CONFIG_NET_MPTCP_SCHED_PROBE) += mptcp_sched_probe.o
 obj-$(CONFIG_NET_MPTCP_QUEUE_PROBE) += mptcp_queue_probe.o
 obj-$(CONFIG_MPTCP_RATIO) += mptcp_ratio.o
 
