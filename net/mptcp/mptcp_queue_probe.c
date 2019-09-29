@@ -56,8 +56,8 @@ struct tcp_log {
 	u8 queue;
 	u32 queue_size;
 	u32 ofo_tstamp;
-    u32 seq;
-    u32 end_seq;
+        u32 seq;
+        u32 end_seq;
 	u8 operation;
 };
 
@@ -90,25 +90,23 @@ static inline int tcp_probe_avail(void)
 
 static void log_tcp_params(struct mptcp_queue_probe* qprobe) 
 {
-	//const struct tcp_sock *meta_tp = qprobe->meta_tp;
-	//const struct mptcp_cb *mpcb = meta_tp->mpcb;
     
-    spin_lock(&tcp_probe.lock);
-    /* If log fills, just silently drop*/ 
-    if (tcp_probe_avail() > 1){			 
-        struct tcp_log *p = tcp_probe.log + tcp_probe.head;
+        spin_lock(&tcp_probe.lock);
+        /* If log fills, just silently drop*/ 
+        if (tcp_probe_avail() > 1){			 
+                struct tcp_log *p = tcp_probe.log + tcp_probe.head;
 			
-        p->tstamp = ktime_get();
+                p->tstamp = ktime_get();
 
-		p->queue = qprobe->q_id; /* 0: RCV_Q, 1: OFO_Q */
-        p->queue_size = qprobe->q_size;
-        p->operation = qprobe->op_id;
-        p->seq = qprobe->skb_seq;
-        p->end_seq = qprobe->skb_end_seq;      
-	    
-        tcp_probe.head = (tcp_probe.head + 1) & (bufsize - 1);
+                p->queue = qprobe->q_id; /* 0: RCV_Q, 1: OFO_Q */
+                p->queue_size = qprobe->q_size;
+                p->operation = qprobe->op_id;
+                p->seq = qprobe->skb_seq;
+                p->end_seq = qprobe->skb_end_seq;      
+                    
+                tcp_probe.head = (tcp_probe.head + 1) & (bufsize - 1);
 	}
-    spin_unlock(&tcp_probe.lock);
+        spin_unlock(&tcp_probe.lock);
 	wake_up(&tcp_probe.wait);
 }
 
@@ -122,9 +120,9 @@ static int kmptcp_queue_probe_log_hook(struct kretprobe_instance *ri, struct pt_
 
 static struct kretprobe mptcp_kprobe = {
 	.kp = {
-		.symbol_name	= "mptcp_queue_probe_log_hook",
+		.symbol_name = "mptcp_queue_probe_log_hook",
 	},
-	.handler	= kmptcp_queue_probe_log_hook,
+	.handler = kmptcp_queue_probe_log_hook,
 };
 
 static int tcpprobe_open(struct inode *inode, struct file *file)
