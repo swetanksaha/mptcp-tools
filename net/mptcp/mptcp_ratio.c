@@ -3,11 +3,11 @@
 #include <linux/module.h>
 #include <net/mptcp.h>
 
-static unsigned char num_segments __read_mostly = 1;
+static unsigned char num_segments __read_mostly = 100;
 module_param(num_segments, byte, 0644);
 MODULE_PARM_DESC(num_segments, "The number of consecutive segments that are part of a burst");
 
-static bool cwnd_limited __read_mostly = 1;
+static bool cwnd_limited __read_mostly = 0;
 module_param(cwnd_limited, bool, 0644);
 MODULE_PARM_DESC(cwnd_limited, "if set to 1, the scheduler tries to fill the congestion-window on all subflows");
 
@@ -171,6 +171,34 @@ static struct sk_buff *__mptcp_ratio_next_segment(const struct sock *meta_sk, in
 	return skb;
 }
 
+static int choose_subflow(struct ratiosched_priv *rsp, struct sock *sk_it, unsigned char num_segments_flow_one, 
+                        unsigned char *split, struct sock *choose_sk, unsigned char *full_subs)
+{
+        if (!num_segments_flow_one) {
+                (*full_subs)++;
+                return 1; /* continue */
+        }
+
+        /* Is this subflow currently being used? */
+        if (rsp->quota > 0 && rsp->quota < num_segments_flow_one) {
+                *split = num_segments_flow_one - rsp->quota;
+                choose_sk = sk_it;
+                return 2; /* goto found */
+        }
+
+        /* Or, it's totally unused */
+        if (!rsp->quota) {
+                *split = num_segments_flow_one;
+                choose_sk = sk_it;
+        }
+
+        /* Or, it must then be fully used  */
+        if (rsp->quota >= num_segments_flow_one)
+                (*full_subs)++;
+
+        return 0;
+}
+
 static struct sk_buff *mptcp_ratio_next_segment(struct sock *meta_sk,
 					     int *reinject,
 					     struct sock **subsk,
@@ -180,7 +208,7 @@ static struct sk_buff *mptcp_ratio_next_segment(struct sock *meta_sk,
 	struct sock *sk_it, *choose_sk = NULL;
 	struct sk_buff *skb = __mptcp_ratio_next_segment(meta_sk, reinject);
 	unsigned char split = num_segments;
-	unsigned char iter = 0, full_subs = 0;
+	unsigned char iter = 0, full_subs = 0, flow_counter = 0, ret;
 
 	/* As we set it, we have to reset it as well. */
 	*limit = 0;
@@ -203,27 +231,20 @@ retry:
 		struct tcp_sock *tp_it = tcp_sk(sk_it);
 		struct ratiosched_priv *rsp = ratiosched_get_priv(tp_it);
 
+                flow_counter++;
+
 		if (!mptcp_ratio_is_available(sk_it, skb, false, cwnd_limited))
 			continue;
 
 		iter++;
 
-		/* Is this subflow currently being used? */
-		if (rsp->quota > 0 && rsp->quota < num_segments) {
-			split = num_segments - rsp->quota;
-			choose_sk = sk_it;
-			goto found;
-		}
+                if (flow_counter % 2)
+                        ret = choose_subflow(rsp, sk_it, sysctl_num_segments_flow_one, &split, choose_sk, &full_subs); 
+                else
+                        ret = choose_subflow(rsp, sk_it, num_segments-sysctl_num_segments_flow_one, &split, choose_sk, &full_subs);
 
-		/* Or, it's totally unused */
-		if (!rsp->quota) {
-			split = num_segments;
-			choose_sk = sk_it;
-		}
-
-		/* Or, it must then be fully used  */
-		if (rsp->quota >= num_segments)
-			full_subs++;
+                if (ret == 1) continue;
+                if (ret == 2) goto found;
 	}
 
 	/* All considered subflows have a full quota, and we considered at
@@ -273,7 +294,7 @@ found:
 static struct mptcp_sched_ops mptcp_sched_ratio = {
 	.get_subflow = ratio_get_available_subflow,
 	.next_segment = mptcp_ratio_next_segment,
-	.name = "roundrobin",
+	.name = "ratio",
 	.owner = THIS_MODULE,
 };
 
