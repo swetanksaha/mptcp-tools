@@ -174,7 +174,7 @@ static struct sk_buff *__mptcp_ratio_next_segment(const struct sock *meta_sk, in
 }
 
 static int choose_subflow(struct ratiosched_priv *rsp, struct sock *sk_it, unsigned char num_segs_flow_one, 
-                        unsigned char *split, struct sock *choose_sk, unsigned char *full_subs)
+                        unsigned char *split, struct sock **choose_sk, unsigned char *full_subs)
 {
         if (!num_segs_flow_one) {
                 (*full_subs)++;
@@ -184,14 +184,14 @@ static int choose_subflow(struct ratiosched_priv *rsp, struct sock *sk_it, unsig
         /* Is this subflow currently being used? */
         if (rsp->quota > 0 && rsp->quota < num_segs_flow_one) {
                 *split = num_segs_flow_one - rsp->quota;
-                choose_sk = sk_it;
+                *choose_sk = sk_it;
                 return 2; /* goto found */
         }
 
         /* Or, it's totally unused */
         if (!rsp->quota) {
                 *split = num_segs_flow_one;
-                choose_sk = sk_it;
+                *choose_sk = sk_it;
         }
 
         /* Or, it must then be fully used  */
@@ -241,9 +241,9 @@ retry:
 		iter++;
 
                 if (flow_counter % 2)
-                        ret = choose_subflow(rsp, sk_it, num_segments_flow_one, &split, choose_sk, &full_subs); 
+                        ret = choose_subflow(rsp, sk_it, num_segments_flow_one, &split, &choose_sk, &full_subs); 
                 else
-                        ret = choose_subflow(rsp, sk_it, num_segments-num_segments_flow_one, &split, choose_sk, &full_subs);
+                        ret = choose_subflow(rsp, sk_it, num_segments-num_segments_flow_one, &split, &choose_sk, &full_subs);
 
                 if (ret == 1) continue;
                 if (ret == 2) goto found;
@@ -263,7 +263,7 @@ retry:
 			if (!mptcp_ratio_is_available(sk_it, skb, false, cwnd_limited))
 				continue;
 
-			rsp->quota = 0;
+                        rsp->quota = 0;
 		}
                 
                 num_segments_flow_one = (unsigned char) sysctl_num_segments_flow_one;
@@ -289,7 +289,7 @@ found:
 		else
 			rsp->quota++;
 
-		return skb;
+                return skb;
 	}
 
 	return NULL;
