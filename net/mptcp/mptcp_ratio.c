@@ -20,6 +20,8 @@ static struct ratiosched_priv *ratiosched_get_priv(const struct tcp_sock *tp)
 	return (struct ratiosched_priv *)&tp->mptcp->mptcp_sched[0];
 }
 
+static unsigned char num_segments_flow_one;
+
 /* If the sub-socket sk available to send the skb? */
 static bool mptcp_ratio_is_available(const struct sock *sk, const struct sk_buff *skb,
 				  bool zero_wnd_test, bool cwnd_test)
@@ -171,29 +173,29 @@ static struct sk_buff *__mptcp_ratio_next_segment(const struct sock *meta_sk, in
 	return skb;
 }
 
-static int choose_subflow(struct ratiosched_priv *rsp, struct sock *sk_it, unsigned char num_segments_flow_one, 
+static int choose_subflow(struct ratiosched_priv *rsp, struct sock *sk_it, unsigned char num_segs_flow_one, 
                         unsigned char *split, struct sock *choose_sk, unsigned char *full_subs)
 {
-        if (!num_segments_flow_one) {
+        if (!num_segs_flow_one) {
                 (*full_subs)++;
                 return 1; /* continue */
         }
 
         /* Is this subflow currently being used? */
-        if (rsp->quota > 0 && rsp->quota < num_segments_flow_one) {
-                *split = num_segments_flow_one - rsp->quota;
+        if (rsp->quota > 0 && rsp->quota < num_segs_flow_one) {
+                *split = num_segs_flow_one - rsp->quota;
                 choose_sk = sk_it;
                 return 2; /* goto found */
         }
 
         /* Or, it's totally unused */
         if (!rsp->quota) {
-                *split = num_segments_flow_one;
+                *split = num_segs_flow_one;
                 choose_sk = sk_it;
         }
 
         /* Or, it must then be fully used  */
-        if (rsp->quota >= num_segments_flow_one)
+        if (rsp->quota >= num_segs_flow_one)
                 (*full_subs)++;
 
         return 0;
@@ -239,9 +241,9 @@ retry:
 		iter++;
 
                 if (flow_counter % 2)
-                        ret = choose_subflow(rsp, sk_it, sysctl_num_segments_flow_one, &split, choose_sk, &full_subs); 
+                        ret = choose_subflow(rsp, sk_it, num_segments_flow_one, &split, choose_sk, &full_subs); 
                 else
-                        ret = choose_subflow(rsp, sk_it, num_segments-sysctl_num_segments_flow_one, &split, choose_sk, &full_subs);
+                        ret = choose_subflow(rsp, sk_it, num_segments-num_segments_flow_one, &split, choose_sk, &full_subs);
 
                 if (ret == 1) continue;
                 if (ret == 2) goto found;
@@ -263,6 +265,8 @@ retry:
 
 			rsp->quota = 0;
 		}
+                
+                num_segments_flow_one = (unsigned char) sysctl_num_segments_flow_one;
 
 		goto retry;
 	}

@@ -398,6 +398,33 @@ static int proc_tcp_available_ulp(struct ctl_table *ctl,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MPTCP)
+static int proc_tcp_fixed_ssthresh(struct ctl_table *ctl, int write,
+                                   void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+        char val[TCP_FIXED_SSTHRESH_MAX];
+        struct ctl_table tbl = {
+        .data = val,
+        .maxlen = TCP_FIXED_SSTHRESH_MAX,
+        };
+        int ret;
+
+        sprintf(val, "%s %u %s %u",
+                sysctl_tcp_fixed_ssthresh_ip_addr[0], sysctl_tcp_fixed_ssthresh_val[0],
+                sysctl_tcp_fixed_ssthresh_ip_addr[1], sysctl_tcp_fixed_ssthresh_val[1]);
+
+        ret = proc_dostring(&tbl, write, buffer, lenp, ppos);
+
+        if (write && ret == 0) {
+        sscanf(val, "%s %u %s %u",
+                sysctl_tcp_fixed_ssthresh_ip_addr[0], &sysctl_tcp_fixed_ssthresh_val[0],
+                sysctl_tcp_fixed_ssthresh_ip_addr[1], &sysctl_tcp_fixed_ssthresh_val[1]);
+        }
+
+        return ret;
+}
+#endif
+
 static struct ctl_table ipv4_table[] = {
 	{
 		.procname	= "tcp_retrans_collapse",
@@ -767,6 +794,21 @@ static struct ctl_table ipv4_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &one
 	},
+#if IS_ENABLED(CONFIG_MPTCP)
+        {
+                .procname       = "tcp_fixed_ssthresh_initcwnd_enabled",
+                .data           = &sysctl_tcp_fixed_ssthresh_initcwnd_enabled,
+                .maxlen         = sizeof(u32),
+                .mode           = 0644,
+                .proc_handler   = proc_douintvec,
+        },
+        {
+                .procname       = "tcp_fixed_ssthresh",
+                .maxlen         = TCP_FIXED_SSTHRESH_MAX,
+                .mode           = 0644,
+                .proc_handler   = proc_tcp_fixed_ssthresh,
+        },
+#endif
 	{ }
 };
 

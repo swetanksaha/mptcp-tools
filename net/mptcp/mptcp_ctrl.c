@@ -72,7 +72,11 @@ int sysctl_mptcp_checksum __read_mostly = 1;
 int sysctl_mptcp_debug __read_mostly;
 EXPORT_SYMBOL(sysctl_mptcp_debug);
 int sysctl_mptcp_syn_retries __read_mostly = 3;
-unsigned char sysctl_num_segments_flow_one __read_mostly = 50;
+#if IS_ENABLED(CONFIG_MPTCP_RTT)
+u32 sysctl_mptcp_scheduler_optimizations_disabled __read_mostly = 0;
+EXPORT_SYMBOL(sysctl_mptcp_scheduler_optimizations_disabled);
+#endif
+u32 sysctl_num_segments_flow_one __read_mostly = 50;
 EXPORT_SYMBOL(sysctl_num_segments_flow_one);
 
 bool mptcp_init_failed __read_mostly;
@@ -117,54 +121,6 @@ static int proc_mptcp_scheduler(struct ctl_table *ctl, int write,
 		ret = mptcp_set_default_scheduler(val);
 	return ret;
 }
-
-#if IS_ENABLED(CONFIG_MPTCP_RATIO)
-static int proc_mptcp_num_segments_flow_one(struct ctl_table *ctl, int write,
-                void __user *buffer, size_t *lenp,
-                loff_t *ppos)
-{
-        unsigned char val;
-        struct ctl_table tbl = {
-                .data = &val,
-                .maxlen = sizeof(unsigned char),
-        };
-        int ret, i;
-
-        ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
-        if (write && ret == 0) {
-                struct tcp_sock *meta_tp;
-                sysctl_num_segments_flow_one = val;
-
-                for (i = 0; i < MPTCP_HASH_SIZE; i++) {
-                    struct hlist_nulls_node *node;
-                    rcu_read_lock_bh();
-                    hlist_nulls_for_each_entry_rcu(meta_tp, node,
-                                       &tk_hashtable[i], tk_table) {
-                        struct sock *sk_it;
-                        struct mptcp_cb *mpcb = meta_tp->mpcb;
-                        int iter;
-
-                        if (!mptcp(meta_tp))
-                            continue;
-
-                        if (!mpcb)
-                            continue;
-
-                        iter = 0;
-                        mptcp_for_each_sk(mpcb, sk_it) {
-                            struct tcp_sock *tp_it = tcp_sk(sk_it);
-                            tp_it->mptcp->mptcp_sched[0] = 0x00; /* (ratiosched_get_priv(tp_it))->quota = 0 */
-                            iter++;
-                        }
-                    }
-
-                    rcu_read_unlock_bh();
-                }
-
-        }  
-        return ret;
-}
-#endif
 
 static struct ctl_table mptcp_table[] = {
 	{
@@ -216,12 +172,22 @@ static struct ctl_table mptcp_table[] = {
 		.maxlen		= MPTCP_SCHED_NAME_MAX,
 		.proc_handler	= proc_mptcp_scheduler,
 	},
+#if IS_ENABLED(CONFIG_MPTCP_RTT)
+        {
+                .procname     = "mptcp_scheduler_optimizations_disabled",
+                .data         = &sysctl_mptcp_scheduler_optimizations_disabled,
+                .maxlen       = sizeof(u32),
+                .mode         = 0644,
+                .proc_handler = &proc_douintvec
+        },
+#endif
 #if IS_ENABLED(CONFIG_MPTCP_RATIO)
         {
                 .procname     = "num_segments_flow_one",
-                .maxlen       = sizeof(int),
+                .data         = &sysctl_num_segments_flow_one,
+                .maxlen       = sizeof(u32),
                 .mode         = 0644,
-                .proc_handler = proc_mptcp_num_segments_flow_one,
+                .proc_handler = &proc_douintvec
         },
 #endif
 	{ }

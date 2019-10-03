@@ -10,6 +10,9 @@
 #include <linux/hash.h>
 #include <linux/tcp_metrics.h>
 #include <linux/vmalloc.h>
+#if IS_ENABLED(CONFIG_MPTCP)
+#include <linux/inet.h>
+#endif
 
 #include <net/inet_connection_sock.h>
 #include <net/net_namespace.h>
@@ -22,6 +25,12 @@
 #include <net/genetlink.h>
 
 int sysctl_tcp_nometrics_save __read_mostly;
+
+#if IS_ENABLED(CONFIG_MPTCP)
+u32 sysctl_tcp_fixed_ssthresh_initcwnd_enabled __read_mostly = 0;
+u32 sysctl_tcp_fixed_ssthresh_val[2] __read_mostly = {TCP_INFINITE_SSTHRESH, TCP_INFINITE_SSTHRESH};
+char sysctl_tcp_fixed_ssthresh_ip_addr[2][16] __read_mostly = { "255.255.255.255", "255.255.255.255" };
+#endif
 
 static struct tcp_metrics_block *__tcp_get_metrics(const struct inetpeer_addr *saddr,
 						   const struct inetpeer_addr *daddr,
@@ -471,6 +480,13 @@ void tcp_init_metrics(struct sock *sk)
 		 */
 		tp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
 	}
+#if IS_ENABLED(CONFIG_MPTCP)
+        if (sysctl_tcp_fixed_ssthresh_initcwnd_enabled) {
+                if (inet_sk(sk)->inet_daddr == in_aton(sysctl_tcp_fixed_ssthresh_ip_addr[0]))
+                        tp->snd_ssthresh = sysctl_tcp_fixed_ssthresh_val[0];
+                else tp->snd_ssthresh = sysctl_tcp_fixed_ssthresh_val[1];
+        }
+#endif
 	val = tcp_metric_get(tm, TCP_METRIC_REORDERING);
 	if (val && tp->reordering != val) {
 		tcp_disable_fack(tp);

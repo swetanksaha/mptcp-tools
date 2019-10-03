@@ -669,7 +669,12 @@ extern int sysctl_mptcp_version;
 extern int sysctl_mptcp_checksum;
 extern int sysctl_mptcp_debug;
 extern int sysctl_mptcp_syn_retries;
-extern unsigned char sysctl_num_segments_flow_one;
+#if IS_ENABLED(CONFIG_MPTCP_RTT)
+extern u32 sysctl_mptcp_scheduler_optimizations_disabled;
+#endif
+#if IS_ENABLED(CONFIG_MPTCP_RATIO)
+extern u32 sysctl_num_segments_flow_one;
+#endif
 
 extern struct workqueue_struct *mptcp_wq;
 

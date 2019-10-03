@@ -266,6 +266,10 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
 #define FLAG_CA_ALERT		(FLAG_DATA_SACKED|FLAG_ECE|FLAG_DSACKING_ACK)
 #define FLAG_FORWARD_PROGRESS	(FLAG_ACKED|FLAG_DATA_SACKED)
 
+#if IS_ENABLED(CONFIG_MPTCP)
+#define TCP_FIXED_SSTHRESH_MAX  55
+#endif
+
 /* sysctl variables for tcp */
 extern int sysctl_tcp_fastopen;
 extern int sysctl_tcp_retrans_collapse;
@@ -306,6 +310,12 @@ extern int sysctl_tcp_pacing_ca_ratio;
 extern atomic_long_t tcp_memory_allocated;
 extern struct percpu_counter tcp_sockets_allocated;
 extern unsigned long tcp_memory_pressure;
+
+#if IS_ENABLED(CONFIG_MPTCP)
+extern u32 sysctl_tcp_fixed_ssthresh_initcwnd_enabled;
+extern u32 sysctl_tcp_fixed_ssthresh_val[2];
+extern char sysctl_tcp_fixed_ssthresh_ip_addr[2][16];
+#endif
 
 /* optimized version of sk_under_memory_pressure() for TCP sockets */
 static inline bool tcp_under_memory_pressure(const struct sock *sk)

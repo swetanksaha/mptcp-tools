@@ -396,12 +396,18 @@ static struct sk_buff *mptcp_rcv_buf_optimization(struct sock *sk, int penal)
 	if (tcp_jiffies32 - dsp->last_rbuf_opti < usecs_to_jiffies(tp->srtt_us >> 3))
 		goto retrans;
 
+        if (sysctl_mptcp_scheduler_optimizations_disabled > 1)
+                goto retrans;
+
 	/* Half the cwnd of the slow flows */
 	mptcp_for_each_tp(tp->mpcb, tp_it) {
 		if (tp_it != tp &&
 		    TCP_SKB_CB(skb_head)->path_mask & mptcp_pi_to_flag(tp_it->mptcp->path_index)) {
 			if (tp->srtt_us < tp_it->srtt_us && inet_csk((struct sock *)tp_it)->icsk_ca_state == TCP_CA_Open) {
 				u32 prior_cwnd = tp_it->snd_cwnd;
+
+                                if (sysctl_mptcp_scheduler_optimizations_disabled && tcp_in_slow_start(tp_it))
+                                        continue;
 
 				tp_it->snd_cwnd = max(tp_it->snd_cwnd >> 1U, 1U);
 
